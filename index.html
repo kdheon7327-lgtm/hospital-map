@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>이천 병원 지도</title>
+
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    #map { width: 100%; height: 90vh; }
+    #searchBox {
+      padding: 10px;
+      background: #fff;
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="searchBox">
+  <input type="text" id="keyword" placeholder="병원 검색 (예: 이천 병원)">
+  <button onclick="searchPlaces()">검색</button>
+</div>
+
+<div id="map"></div>
+
+<!-- 카카오 지도 API -->
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=4106a0cc81c61ef4889c6d4acf55a48d&libraries=services"></script>
+
+<script>
+let map;
+let markers = [];
+
+// 지도 초기화
+window.onload = function () {
+  map = new kakao.maps.Map(document.getElementById('map'), {
+    center: new kakao.maps.LatLng(37.279, 127.442), // 이천
+    level: 4
+  });
+
+  searchPlaces(); // 기본 검색
+};
+
+// 기존 마커 제거
+function clearMarkers() {
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+}
+
+// 병원 검색
+function searchPlaces() {
+  let keyword = document.getElementById("keyword").value || "이천 병원";
+
+  let ps = new kakao.maps.services.Places();
+
+  ps.keywordSearch(keyword, function (data, status) {
+
+    if (status !== kakao.maps.services.Status.OK) {
+      alert("검색 결과 없음");
+      return;
+    }
+
+    clearMarkers();
+
+    data.forEach(function(place, index) {
+
+  // 👉 제외 조건 (여기 추가)
+  if (
+    place.place_name.includes("주차장") ||
+    place.place_name.includes("매점")
+  ) {
+    return; // 이건 건너뜀
+  }
+
+      let marker = new kakao.maps.Marker({
+        map: map,
+        position: new kakao.maps.LatLng(place.y, place.x)
+      });
+
+      markers.push(marker);
+
+      let savedDesc = localStorage.getItem(place.id) || "";
+
+      let infowindow = new kakao.maps.InfoWindow({
+        content: `
+          <div style="padding:10px; width:200px;">
+            <b>${place.place_name}</b><br>
+            <small>${place.address_name}</small><br><br>
+
+            <textarea id="desc-${index}" style="width:100%;">${savedDesc}</textarea><br>
+            <button onclick="saveDesc('${place.id}', ${index})">저장</button>
+            <button id="close-${index}">닫기</button>
+          </div>
+        `
+      });
+
+      kakao.maps.event.addListener(marker, 'click', function () {
+        infowindow.open(map, marker);
+
+        // 👉 닫기 버튼 이벤트 연결 (핵심)
+        setTimeout(() => {
+          let btn = document.getElementById(`close-${index}`);
+          if (btn) {
+            btn.onclick = function () {
+              infowindow.close();
+            };
+          }
+        }, 0);
+      });
+
+    });
+
+  });
+}
+
+// 설명 저장
+function saveDesc(id, index) {
+  let value = document.getElementById(`desc-${index}`).value;
+  localStorage.setItem(id, value);
+  alert("저장 완료!");
+}
+</script>
+
+</body>
+</html>
