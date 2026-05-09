@@ -5,7 +5,6 @@
 <title>이천 병원 지도</title>
 
 <style>
-
 html, body{
   margin:0;
   width:100%;
@@ -14,12 +13,14 @@ html, body{
   font-family:sans-serif;
 }
 
+/* 전체 레이아웃 */
 #wrap{
   display:flex;
   width:100%;
   height:100%;
 }
 
+/* 왼쪽 패널 */
 #sidebar{
   width:340px;
   background:#fff;
@@ -29,28 +30,29 @@ html, body{
   z-index:10;
 }
 
+/* 검색창 */
 #searchArea{
   padding:14px;
   border-bottom:1px solid #eee;
 }
 
 #keyword{
-  width:180px;
+  width:220px;
   padding:8px;
   border:1px solid #ccc;
   border-radius:6px;
 }
 
 button{
-  padding:8px 10px;
+  padding:8px 12px;
   border:none;
   border-radius:6px;
   background:#2f80ed;
   color:#fff;
   cursor:pointer;
-  margin-top:5px;
 }
 
+/* 병원 목록 */
 #hospitalList{
   flex:1;
   overflow-y:auto;
@@ -68,6 +70,7 @@ button{
 
 .hospital-name{
   font-weight:bold;
+  margin-bottom:4px;
 }
 
 .hospital-address{
@@ -75,31 +78,38 @@ button{
   color:#666;
 }
 
+/* 메모 패널 */
 #memoPanel{
   padding:14px;
   border-top:1px solid #ddd;
   background:#fafafa;
 }
 
+#selectedTitle{
+  font-weight:bold;
+  margin-bottom:8px;
+}
+
 #memo{
   width:100%;
   height:120px;
-  padding:10px;
   resize:none;
+  padding:10px;
+  border:1px solid #ccc;
+  border-radius:6px;
   box-sizing:border-box;
 }
 
+#saveBtn{
+  margin-top:10px;
+  width:100%;
+}
+
+/* 지도 */
 #map{
   flex:1;
   height:100%;
 }
-
-.info{
-  margin-top:8px;
-  font-size:13px;
-  color:#444;
-}
-
 </style>
 </head>
 
@@ -107,66 +117,45 @@ button{
 
 <div id="wrap">
 
+  <!-- 왼쪽 UI -->
   <div id="sidebar">
 
     <div id="searchArea">
-
       <input
         type="text"
         id="keyword"
         placeholder="병원 검색"
       />
-
-      <button onclick="searchPlaces()">
-        검색
-      </button>
-
-      <button onclick="moveToMyLocation()">
-        현재 위치
-      </button>
-
-      <button onclick="findNearestHospital()">
-        가장 가까운 병원
-      </button>
-
-      <div class="info" id="gpsInfo">
-        GPS 방향: -
-      </div>
-
+      <button onclick="searchPlaces()">검색</button>
     </div>
 
     <div id="hospitalList"></div>
 
     <div id="memoPanel">
-
       <div id="selectedTitle">
         병원을 선택하세요
       </div>
 
       <textarea
         id="memo"
-        placeholder="메모 입력"
+        placeholder="병원 메모 입력"
       ></textarea>
 
       <button id="saveBtn">
         메모 저장
       </button>
-
     </div>
 
   </div>
 
+  <!-- 지도 -->
   <div id="map"></div>
 
 </div>
 
+<!-- 카카오맵 -->
 <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=4106a0cc81c61ef4889c6d4acf55a48d&libraries=services"></script>
-
 <script>
-
-/* =========================
-   이천 중심
-========================= */
 
 const ICHEON = {
   lat:37.2793,
@@ -177,13 +166,8 @@ let map;
 let ps;
 
 let markers = [];
-let hospitals = [];
 
 let currentHospital = null;
-
-let myLocation = null;
-let myLocationMarker = null;
-let myCircle = null;
 
 const hospitalList =
   document.getElementById("hospitalList");
@@ -194,9 +178,8 @@ const memoTextarea =
 const selectedTitle =
   document.getElementById("selectedTitle");
 
-/* =========================
-   시작
-========================= */
+/* 지도 시작 */
+let myLocationMarker = null;
 
 window.onload = function(){
 
@@ -211,20 +194,13 @@ window.onload = function(){
     }
   );
 
-  ps =
-    new kakao.maps.services.Places();
+  ps = new kakao.maps.services.Places();
 
   searchPlaces();
 
+  /* 현재 위치 표시 */
   showMyLocation();
-
-  startCompass();
-
 };
-
-/* =========================
-   현재 위치 표시
-========================= */
 
 function showMyLocation(){
 
@@ -236,29 +212,21 @@ function showMyLocation(){
 
     function(position){
 
-      const lat =
-        position.coords.latitude;
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
 
-      const lng =
-        position.coords.longitude;
-
-      myLocation = {
-        lat,
-        lng
-      };
-
-      const pos =
+      const myPos =
         new kakao.maps.LatLng(lat,lng);
 
-      const markerImage =
-        createBlinkMarker();
-
-      /* 첫 생성 */
+      /* 처음 생성 */
       if(!myLocationMarker){
+
+        const markerImage =
+          createDotMarker("#FF3B30");
 
         myLocationMarker =
           new kakao.maps.Marker({
-            position:pos,
+            position:myPos,
             image:markerImage,
             zIndex:9999
           });
@@ -267,38 +235,9 @@ function showMyLocation(){
 
       }else{
 
-        myLocationMarker.setPosition(pos);
-
+        /* 위치 갱신 */
+        myLocationMarker.setPosition(myPos);
       }
-
-      /* 자동 이동 */
-      map.panTo(pos);
-
-      /* 반경 표시 */
-      if(myCircle){
-        myCircle.setMap(null);
-      }
-
-      myCircle =
-        new kakao.maps.Circle({
-
-          center:pos,
-
-          radius:1000,
-
-          strokeWeight:2,
-
-          strokeColor:"#FF3B30",
-
-          strokeOpacity:0.8,
-
-          fillColor:"#FF3B30",
-
-          fillOpacity:0.1
-
-        });
-
-      myCircle.setMap(map);
 
     },
 
@@ -316,54 +255,59 @@ function showMyLocation(){
 
 }
 
-/* =========================
-   현재 위치 버튼
-========================= */
+/* 마커 제거 */
+function clearMarkers(){
 
-function moveToMyLocation(){
+  markers.forEach(marker=>{
+    marker.setMap(null);
+  });
 
-  if(!myLocation){
-    return;
-  }
-
-  map.panTo(
-    new kakao.maps.LatLng(
-      myLocation.lat,
-      myLocation.lng
-    )
-  );
+  markers = [];
 }
 
-/* =========================
-   병원 검색
-========================= */
-
+/* 병원 검색 */
 async function searchPlaces(){
 
   clearMarkers();
 
   hospitalList.innerHTML = "";
 
-  hospitals = [];
-
   const bounds =
     new kakao.maps.LatLngBounds();
 
-  const added =
-    new Set();
+  const added = new Set();
 
   const keywords = [
 
-    "이천 병원",
-    "이천 의원",
-    "이천 내과",
-    "이천 외과",
-    "이천 정형외과",
-    "이천 소아과",
-    "이천 안과",
-    "이천 이비인후과"
+  "이천 병원",
+  "이천 의원",
 
-  ];
+  "이천 내과",
+  "이천 외과",
+  "이천 정형외과",
+  "이천 신경외과",
+  "이천 가정의학과",
+
+  "이천 소아청소년과",
+  "이천 피부과",
+  "이천 안과",
+  "이천 비뇨의학과",
+  "이천 산부인과",
+
+  "이천 정신건강의학과",
+  "이천 재활의학과",
+  "이천 통증의학과",
+
+  "이천 치과",
+  "이천 한의원",
+  "이천 이비인후과",
+
+  "이천 건강검진",
+  "이천 응급의료",
+
+  "이천 클리닉"
+
+];
 
   const userKeyword =
     document
@@ -382,15 +326,10 @@ async function searchPlaces(){
     );
   }
 
-  if(markers.length > 0){
-    map.setBounds(bounds);
-  }
+  map.setBounds(bounds);
 }
 
-/* =========================
-   키워드 검색
-========================= */
-
+/* 키워드 검색 */
 function searchKeyword(
   keyword,
   added,
@@ -400,10 +339,7 @@ function searchKeyword(
 
   return new Promise((resolve)=>{
 
-    ps.keywordSearch(
-
-      keyword,
-
+    ps.keywordSearch(keyword,
       function(data,status){
 
         if(
@@ -423,24 +359,27 @@ function searchKeyword(
           if(
             name.includes("약국") ||
             name.includes("동물") ||
-            name.includes("요양") ||
-            name.includes("한의원")||
+            name.includes("주차장")||
+            name.includes("치과")||
+            name.includes("피부")||
+            name.includes("장례")||
             name.includes("응급")||
-            name.includes("주차장")
+            name.includes("한의원")||
+            name.includes("요양")
           ){
             return;
           }
 
-          /* 검색 */
+          /* 검색 필터 */
           if(
             filterKeyword &&
-            !name
-            .toLowerCase()
+            !name.toLowerCase()
             .includes(filterKeyword)
           ){
             return;
           }
 
+          /* 중복 제거 */
           if(added.has(place.id)){
             return;
           }
@@ -456,14 +395,11 @@ function searchKeyword(
       },
 
       {
-        location:
-          new kakao.maps.LatLng(
-            ICHEON.lat,
-            ICHEON.lng
-          ),
-
+        location:new kakao.maps.LatLng(
+          ICHEON.lat,
+          ICHEON.lng
+        ),
         radius:10000,
-
         size:15
       }
 
@@ -473,36 +409,26 @@ function searchKeyword(
 
 }
 
-/* =========================
-   병원 추가
-========================= */
-
+/* 병원 추가 */
 function addHospital(place,bounds){
-
-  hospitals.push(place);
 
   const savedMemo =
     localStorage.getItem(place.id);
 
-  const color =
-    savedMemo
-    ? "#2F80ED"
-    : "#27AE60";
+  /* 메모 여부 따라 색상 변경 */
+  const markerColor =
+    savedMemo ? "#2F80ED" : "#27AE60";
 
   const markerImage =
-    createDotMarker(color);
+    createDotMarker(markerColor);
 
   const marker =
     new kakao.maps.Marker({
-
-      position:
-        new kakao.maps.LatLng(
-          place.y,
-          place.x
-        ),
-
+      position:new kakao.maps.LatLng(
+        place.y,
+        place.x
+      ),
       image:markerImage
-
     });
 
   marker.setMap(map);
@@ -516,6 +442,7 @@ function addHospital(place,bounds){
     )
   );
 
+  /* 마커 클릭 */
   kakao.maps.event.addListener(
     marker,
     "click",
@@ -530,6 +457,7 @@ function addHospital(place,bounds){
         localStorage.getItem(place.id)
         || "";
 
+      /* 지도 이동 */
       map.panTo(
         new kakao.maps.LatLng(
           place.y,
@@ -540,11 +468,11 @@ function addHospital(place,bounds){
     }
   );
 
+  /* 왼쪽 목록 */
   const item =
     document.createElement("div");
 
-  item.className =
-    "hospital-item";
+  item.className = "hospital-item";
 
   item.innerHTML = `
     <div class="hospital-name">
@@ -573,22 +501,19 @@ function addHospital(place,bounds){
         place.x
       )
     );
-
   };
 
   hospitalList.appendChild(item);
-
 }
 
-/* =========================
-   메모 저장
-========================= */
-
+/* 메모 저장 */
+/* 메모 저장 */
 document
 .getElementById("saveBtn")
 .onclick = function(){
 
   if(!currentHospital){
+    alert("병원을 선택하세요");
     return;
   }
 
@@ -599,161 +524,28 @@ document
 
   alert("저장 완료");
 
-};
+  /* 현재 마커 색만 변경 */
 
-/* =========================
-   가장 가까운 병원 찾기
-========================= */
+  markers.forEach(marker=>{
 
-function findNearestHospital(){
+    const markerPos = marker.getPosition();
 
-  if(!myLocation){
-    return;
-  }
+    if(
+      markerPos.getLat() == currentHospital.y &&
+      markerPos.getLng() == currentHospital.x
+    ){
 
-  let nearest = null;
-  let minDistance = Infinity;
+      const blueMarker =
+        createDotMarker("#2F80ED");
 
-  hospitals.forEach(hospital=>{
-
-    const dist =
-      getDistance(
-
-        myLocation.lat,
-        myLocation.lng,
-
-        parseFloat(hospital.y),
-        parseFloat(hospital.x)
-
-      );
-
-    if(dist < minDistance){
-
-      minDistance = dist;
-
-      nearest = hospital;
-
+      marker.setImage(blueMarker);
     }
 
   });
 
-  if(nearest){
+};
 
-    alert(
-      "가장 가까운 병원:\n" +
-      nearest.place_name +
-      "\n거리: " +
-      Math.round(minDistance) +
-      "m"
-    );
-
-    map.panTo(
-      new kakao.maps.LatLng(
-        nearest.y,
-        nearest.x
-      )
-    );
-
-  }
-
-}
-
-/* =========================
-   거리 계산
-========================= */
-
-function getDistance(
-  lat1,
-  lon1,
-  lat2,
-  lon2
-){
-
-  const R = 6371e3;
-
-  const p1 =
-    lat1 * Math.PI/180;
-
-  const p2 =
-    lat2 * Math.PI/180;
-
-  const dp =
-    (lat2-lat1) * Math.PI/180;
-
-  const dl =
-    (lon2-lon1) * Math.PI/180;
-
-  const a =
-    Math.sin(dp/2) *
-    Math.sin(dp/2) +
-
-    Math.cos(p1) *
-    Math.cos(p2) *
-
-    Math.sin(dl/2) *
-    Math.sin(dl/2);
-
-  const c =
-    2 * Math.atan2(
-      Math.sqrt(a),
-      Math.sqrt(1-a)
-    );
-
-  return R * c;
-}
-
-/* =========================
-   GPS 방향 표시
-========================= */
-
-function startCompass(){
-
-  if(
-    window.DeviceOrientationEvent
-  ){
-
-    window.addEventListener(
-
-      "deviceorientation",
-
-      function(event){
-
-        const heading =
-          Math.round(
-            event.alpha || 0
-          );
-
-        document
-        .getElementById("gpsInfo")
-        .innerHTML =
-          "GPS 방향: " +
-          heading + "°";
-
-      }
-
-    );
-
-  }
-
-}
-
-/* =========================
-   마커 제거
-========================= */
-
-function clearMarkers(){
-
-  markers.forEach(marker=>{
-    marker.setMap(null);
-  });
-
-  markers = [];
-}
-
-/* =========================
-   일반 점 마커
-========================= */
-
+/* 점 마커 */
 function createDotMarker(color){
 
   const svg = `
@@ -769,58 +561,14 @@ function createDotMarker(color){
       stroke="white"
       stroke-width="2"
     />
-
   </svg>
   `;
 
   return new kakao.maps.MarkerImage(
-
     'data:image/svg+xml;charset=UTF-8,' +
     encodeURIComponent(svg),
 
     new kakao.maps.Size(18,18)
-
-  );
-}
-
-/* =========================
-   깜빡이는 빨간 마커
-========================= */
-
-function createBlinkMarker(){
-
-  const svg = `
-  <svg xmlns="http://www.w3.org/2000/svg"
-       width="24"
-       height="24">
-
-    <circle
-      cx="12"
-      cy="12"
-      r="8"
-      fill="#FF3B30"
-      opacity="0.9"
-    >
-
-      <animate
-        attributeName="opacity"
-        values="1;0.2;1"
-        dur="1s"
-        repeatCount="indefinite"
-      />
-
-    </circle>
-
-  </svg>
-  `;
-
-  return new kakao.maps.MarkerImage(
-
-    'data:image/svg+xml;charset=UTF-8,' +
-    encodeURIComponent(svg),
-
-    new kakao.maps.Size(24,24)
-
   );
 }
 
